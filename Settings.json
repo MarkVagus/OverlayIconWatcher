@@ -1,0 +1,16 @@
+[
+  "Tortoise1Normal",
+  "Tortoise2Modified",
+  "Tortoise3Conflict",
+  "Tortoise4Locked",
+  "Tortoise5ReadOnly",
+  "Tortoise6Deleted",
+  "Tortoise7Added",
+  "Tortoise8Ignored",
+  "Tortoise9Unversioned",
+  "NextcloudError",
+  "NextcloudOK",
+  "NextcloudOKShared",
+  "NextcloudSync",
+  "NextcloudWarning"
+]
