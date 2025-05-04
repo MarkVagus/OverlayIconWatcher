@@ -4,31 +4,37 @@ using Microsoft.Extensions.Logging;
 
 namespace OverlayIconWatcher;
 
-internal class Worker(ILogger logger) : BackgroundService
+internal class Worker : BackgroundService
 {
-	readonly string RegistryKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ShellIconOverlayIdentifiers";
-
-	ILogger Logger { get; } = logger;
-
-	RegistryWatcher? Watcher { get; set; }
-
-	string? SettingsFilePath { get; set; }
-
-	protected override Task ExecuteAsync(CancellationToken stoppingToken)
+	public Worker(ILogger logger)
 	{
-		Logger.LogInformation("Service starting...");
+		Logger = logger;
+
+		Logger.LogInformation(Program.ProgramInfo);
 
 		Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
 		string entryAssemblyDirectoryPath = Path.GetDirectoryName(entryAssembly.Location) ?? throw new Exception("No directory pth for entry assembly found");
 		SettingsFilePath = Path.Combine(entryAssemblyDirectoryPath, "settings.json");
 
-		Logger.LogInformation($"{entryAssembly.GetName().Name} {entryAssembly.GetName().Version}");
-
 		if (!File.Exists(SettingsFilePath))
 			throw new Exception($"settings.json not found at: {SettingsFilePath}");
 
 		Logger.LogInformation($"Settings file: {SettingsFilePath}");
+	}
 
+	readonly string RegistryKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ShellIconOverlayIdentifiers";
+
+	ILogger Logger { get; }
+
+	RegistryWatcher? Watcher { get; set; }
+
+	string SettingsFilePath { get; set; }
+
+
+	protected override Task ExecuteAsync(CancellationToken stoppingToken)
+	{
+		Logger.LogInformation("Service starting...");
+	
 		Logger.LogInformation($"Start watching registry key: {RegistryKey}");
 		Watcher = new(RegistryKey);
 
@@ -40,7 +46,12 @@ internal class Worker(ILogger logger) : BackgroundService
 
 	private void OnRegistryChanged()
 	{
+		if (Watcher is null)
+			return;
+
 		Watcher.RegistryChanged -= OnRegistryChanged;
+
+		Logger.LogInformation("Registry change detected.");
 
 		Task.Delay(1000);
 
