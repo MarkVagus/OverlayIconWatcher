@@ -34,6 +34,8 @@ internal class Worker : BackgroundService
 	protected override Task ExecuteAsync(CancellationToken stoppingToken)
 	{
 		Logger.LogInformation("Service starting...");
+
+		ReorderOverlayIcons();
 	
 		Logger.LogInformation($"Start watching registry key: {RegistryKey}");
 		Watcher = new(RegistryKey);
@@ -55,10 +57,15 @@ internal class Worker : BackgroundService
 
 		Task.Delay(1000);
 
-		OverlayIconManager m = new(Logger, SettingsFilePath, RegistryKey);
-		m.Execute();
+		ReorderOverlayIcons();
 
 		Watcher.RegistryChanged += OnRegistryChanged;
+	}
+
+	void ReorderOverlayIcons()
+	{
+		OverlayIconManager m = new(Logger, SettingsFilePath, RegistryKey);
+		m.Execute();
 	}
 
 	public override Task StopAsync(CancellationToken cancellationToken)

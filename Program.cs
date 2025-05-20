@@ -1,31 +1,31 @@
-﻿using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OverlayIconWatcher.Logging;
+using System.Reflection;
 
 namespace OverlayIconWatcher;
 
 internal class Program
 {
-	internal static string ProgramInfo => $"{Assembly.GetEntryAssembly()?.GetName().Name} {Assembly.GetEntryAssembly()?.GetName().Version}";
+    internal static string ProgramInfo => $"{Assembly.GetEntryAssembly()?.GetName().Name} {Assembly.GetEntryAssembly()?.GetName().Version}";
 
-	static void Main(string[] args)
-	{
-		ILogger logger = Global.LoggerFactory.CreateLogger<Program>();
+    static void Main(string[] args)
+    {
+        ILogger logger = Global.LoggerFactory.CreateLogger<Program>();
 
-		Host.CreateDefaultBuilder(args)
-			.UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
-			.ConfigureServices((hostContext, services) =>
-			{
-				services.AddHostedService<Worker>();
-				services.AddSingleton(logger);
-			})
-			.ConfigureLogging(logging =>
-			{
-				logging.ClearProviders();
-			})
-			.Build()
-			.Run();
-	}
+        Host.CreateDefaultBuilder(args)
+            .UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
+            .ConfigureServices((hostContext, services) =>
+            {
+                services.AddHostedService<Worker>();
+                services.AddSingleton(logger);
+            })
+            .ConfigureLogging(logging =>
+            {
+                logging.ClearProviders();
+            })
+            .Build()
+            .Run();
+    }
 }
