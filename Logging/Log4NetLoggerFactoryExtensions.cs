@@ -20,7 +20,7 @@ public static class Log4NetLoggerFactoryExtensions
 		return factory;
 	}
 
-	static ILoggerProvider CreateLog4NetProvider(string? configFileName)
+	static Log4NetLoggerProvider CreateLog4NetProvider(string? configFileName)
 	{
 		string fileNameOrPath;
 

@@ -27,6 +27,9 @@ public class Log4NetLoggerProvider(string configFileName) : ILoggerProvider
 		return logger;
 	}
 
-	public void Dispose() =>
-		Loggers.Clear();
+	public void Dispose()
+	{
+        Loggers.Clear();
+		GC.SuppressFinalize(this);
+    }
 }

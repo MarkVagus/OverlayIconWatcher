@@ -38,7 +38,7 @@ internal class Worker : BackgroundService
 		ReorderOverlayIcons();
 	
 		Logger.LogInformation($"Start watching registry key: {RegistryKey}");
-		Watcher = new(RegistryKey);
+		Watcher = new(Logger, RegistryKey);
 
 		Watcher.RegistryChanged += OnRegistryChanged;
 
