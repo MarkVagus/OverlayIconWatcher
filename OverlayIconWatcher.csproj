@@ -12,7 +12,7 @@
 
 	<PropertyGroup>
 		<!-- Unterdrückt bestimmte Compiler-Warnungen -->
-		<NoWarn>$(NoWarn);SYSLIB1054;CA2254</NoWarn>
+		<NoWarn>$(NoWarn);CA2254</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

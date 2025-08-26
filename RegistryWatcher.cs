@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace OverlayIconWatcher;
 
-public class RegistryWatcher : IDisposable
+public partial class RegistryWatcher : IDisposable
 {
 	const int KEY_NOTIFY = 0x10;
 	const int REG_NOTIFY_CHANGE_NAME = 0x1;
@@ -12,21 +12,25 @@ public class RegistryWatcher : IDisposable
 	const int REG_NOTIFY_CHANGE_SECURITY = 0x8; 
 	const int ERROR_SUCCESS = 0;
 
-	// P/Invoke-Deklarationen
-	[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-	private static extern IntPtr RegOpenKeyEx(IntPtr hKey, string lpSubKey, uint ulOptions, uint samDesired, out IntPtr phkResult);
+    [LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial int RegOpenKeyExW(
+		IntPtr hKey,
+		string lpSubKey,
+		uint ulOptions,
+		uint samDesired,
+		out IntPtr phkResult);
 
-	[DllImport("advapi32.dll", SetLastError = true)]
-	private static extern int RegNotifyChangeKeyValue(IntPtr hKey, bool bWatchSubtree, uint dwNotifyFilter, IntPtr hEvent, bool fAsynchronous);
+	[LibraryImport("advapi32.dll", SetLastError = true)]
+	private static partial int RegNotifyChangeKeyValue(IntPtr hKey, [MarshalAs(UnmanagedType.Bool)] bool bWatchSubtree, uint dwNotifyFilter, IntPtr hEvent, [MarshalAs(UnmanagedType.Bool)] bool fAsynchronous);
 
-	[DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-	private static extern IntPtr CreateEvent(IntPtr lpEventAttributes, bool bManualReset, bool bInitialState, string? lpName);
+	[LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16)]
+	private static partial IntPtr CreateEventW(IntPtr lpEventAttributes, [MarshalAs(UnmanagedType.Bool)] bool bManualReset, [MarshalAs(UnmanagedType.Bool)] bool bInitialState, string? lpName);
 
-	[DllImport("kernel32.dll", CharSet = CharSet.Auto)]
-	private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+	[LibraryImport("kernel32.dll")]
+	private static partial uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
-	[DllImport("advapi32.dll", SetLastError = true)]
-	private static extern int RegCloseKey(IntPtr hKey);
+	[LibraryImport("advapi32.dll", SetLastError = true)]
+	private static partial int RegCloseKey(IntPtr hKey);
 
 	readonly IntPtr hKey;
 	IntPtr HEvent { get; }
@@ -44,12 +48,12 @@ public class RegistryWatcher : IDisposable
 		IntPtr HKEY_LOCAL_MACHINE = new(unchecked((int)0x80000002));
 
 		// Öffnen des Registry-Schlüssels
-		int result = (int)RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, 0, KEY_NOTIFY, out hKey);
+		int result = (int)RegOpenKeyExW(HKEY_LOCAL_MACHINE, registryPath, 0, KEY_NOTIFY, out hKey);
 		if (result != ERROR_SUCCESS)
 			throw new InvalidOperationException("Fehler beim Öffnen des Registry-Schlüssels.");
 
 		// Event erstellen, das bei Änderungen ausgelöst wird
-		HEvent = CreateEvent(IntPtr.Zero, true, false, null);
+		HEvent = CreateEventW(IntPtr.Zero, true, false, null);
 		if (HEvent == IntPtr.Zero)
 			throw new InvalidOperationException("Fehler beim Erstellen des Ereignisses.");
 
