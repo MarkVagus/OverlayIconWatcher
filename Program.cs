@@ -9,20 +9,28 @@ internal class Program
 {
     internal static string ProgramInfo => $"{Assembly.GetEntryAssembly()?.GetName().Name} {Assembly.GetEntryAssembly()?.GetName().Version}";
 
-    static async Task Main(string[] args)
+    static void Main(string[] args)
     {
-        Host.CreateDefaultBuilder(args)
-            .UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
-            .ConfigureLogging(logging =>
-            {
-                logging.ClearProviders();
-                logging.AddLog4Net("log4net.config");
-            })
-            .ConfigureServices((hostContext, services) =>
-            {
-                services.AddHostedService<Worker>();
-            })
-            .Build()
-            .Run();
+        try
+        {
+            Host.CreateDefaultBuilder(args)
+                .UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddLog4Net("log4net.config");
+                })
+                .ConfigureServices((hostContext, services) =>
+                {
+                    services.AddHostedService<Worker>();
+                })
+                .Build()
+                .Run();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+            throw;
+        }
     }
 }
