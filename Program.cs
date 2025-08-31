@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OverlayIconWatcher.Logging;
 using System.Reflection;
 
 namespace OverlayIconWatcher;
@@ -10,20 +9,18 @@ internal class Program
 {
     internal static string ProgramInfo => $"{Assembly.GetEntryAssembly()?.GetName().Name} {Assembly.GetEntryAssembly()?.GetName().Version}";
 
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
-        ILogger logger = Global.LoggerFactory.CreateLogger<Program>();
-
         Host.CreateDefaultBuilder(args)
             .UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
-            .ConfigureServices((hostContext, services) =>
-            {
-                services.AddHostedService<Worker>();
-                services.AddSingleton(logger);
-            })
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();
+                logging.AddLog4Net("log4net.config");
+            })
+            .ConfigureServices((hostContext, services) =>
+            {
+                services.AddHostedService<Worker>();
             })
             .Build()
             .Run();

@@ -6,7 +6,7 @@ namespace OverlayIconWatcher;
 
 internal class Worker : BackgroundService
 {
-	public Worker(ILogger logger)
+	public Worker(ILogger<Worker> logger)
 	{
 		Logger = logger;
 
