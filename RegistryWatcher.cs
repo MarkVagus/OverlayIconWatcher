@@ -9,11 +9,11 @@ public partial class RegistryWatcher : IDisposable
 	const int REG_NOTIFY_CHANGE_NAME = 0x1;
 	const int REG_NOTIFY_CHANGE_ATTRIBUTES = 0x2;
 	const int REG_NOTIFY_CHANGE_LAST_SET = 0x4;
-	const int REG_NOTIFY_CHANGE_SECURITY = 0x8; 
+	const int REG_NOTIFY_CHANGE_SECURITY = 0x8;
 	const int ERROR_SUCCESS = 0;
 
-    [LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    internal static partial int RegOpenKeyExW(
+	[LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+	internal static partial int RegOpenKeyExW(
 		IntPtr hKey,
 		string lpSubKey,
 		uint ulOptions,

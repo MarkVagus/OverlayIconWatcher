@@ -7,30 +7,30 @@ namespace OverlayIconWatcher;
 
 internal class Program
 {
-    internal static string ProgramInfo => $"{Assembly.GetEntryAssembly()?.GetName().Name} {Assembly.GetEntryAssembly()?.GetName().Version}";
+	internal static string ProgramInfo => $"{Assembly.GetEntryAssembly()?.GetName().Name} {Assembly.GetEntryAssembly()?.GetName().Version}";
 
-    static void Main(string[] args)
-    {
-        try
-        {
-            Host.CreateDefaultBuilder(args)
-                .UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
-                .ConfigureLogging(logging =>
-                {
-                    logging.ClearProviders();
-                    logging.AddLog4Net("log4net.config");
-                })
-                .ConfigureServices((hostContext, services) =>
-                {
-                    services.AddHostedService<Worker>();
-                })
-                .Build()
-                .Run();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-            throw;
-        }
-    }
+	static void Main(string[] args)
+	{
+		try
+		{
+			Host.CreateDefaultBuilder(args)
+				.UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
+				.ConfigureLogging(logging =>
+				{
+					logging.ClearProviders();
+					logging.AddLog4Net("log4net.config");
+				})
+				.ConfigureServices((hostContext, services) =>
+				{
+					services.AddHostedService<Worker>();
+				})
+				.Build()
+				.Run();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.ToString());
+			throw;
+		}
+	}
 }

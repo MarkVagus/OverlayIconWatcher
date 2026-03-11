@@ -1,6 +1,6 @@
-﻿using System.Reflection;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 namespace OverlayIconWatcher;
 
@@ -36,7 +36,7 @@ internal class Worker : BackgroundService
 		Logger.LogInformation("Service starting...");
 
 		ReorderOverlayIcons();
-	
+
 		Logger.LogInformation($"Start watching registry key: {RegistryKey}");
 		Watcher = new(Logger, RegistryKey);
 
