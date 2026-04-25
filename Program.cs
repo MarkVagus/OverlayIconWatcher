@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Serilog;
 using System.Reflection;
 
 namespace OverlayIconWatcher;
@@ -15,10 +16,9 @@ internal class Program
 		{
 			Host.CreateDefaultBuilder(args)
 				.UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
-				.ConfigureLogging(logging =>
+				.UseSerilog((context, services, configuration) =>
 				{
-					logging.ClearProviders();
-					logging.AddLog4Net("log4net.config");
+					configuration.ReadFrom.Configuration(context.Configuration);
 				})
 				.ConfigureServices((hostContext, services) =>
 				{
