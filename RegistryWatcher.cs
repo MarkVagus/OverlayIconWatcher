@@ -1,110 +1,51 @@
 ﻿using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace OverlayIconWatcher;
 
-public partial class RegistryWatcher : IDisposable
+public class RegistryWatcher : IDisposable
 {
-	const int KEY_NOTIFY = 0x10;
-	const int REG_NOTIFY_CHANGE_NAME = 0x1;
-	const int REG_NOTIFY_CHANGE_ATTRIBUTES = 0x2;
-	const int REG_NOTIFY_CHANGE_LAST_SET = 0x4;
-	const int REG_NOTIFY_CHANGE_SECURITY = 0x8;
-	const int ERROR_SUCCESS = 0;
+	readonly Timer _timer;
+	readonly string _path;
+	HashSet<string> _lastSnapshot = [];
 
-	[LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-	internal static partial int RegOpenKeyExW(
-		IntPtr hKey,
-		string lpSubKey,
-		uint ulOptions,
-		uint samDesired,
-		out IntPtr phkResult);
+	readonly ILogger _logger;
 
-	[LibraryImport("advapi32.dll", SetLastError = true)]
-	private static partial int RegNotifyChangeKeyValue(IntPtr hKey, [MarshalAs(UnmanagedType.Bool)] bool bWatchSubtree, uint dwNotifyFilter, IntPtr hEvent, [MarshalAs(UnmanagedType.Bool)] bool fAsynchronous);
+	public event Action? Changed;
 
-	[LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16)]
-	private static partial IntPtr CreateEventW(IntPtr lpEventAttributes, [MarshalAs(UnmanagedType.Bool)] bool bManualReset, [MarshalAs(UnmanagedType.Bool)] bool bInitialState, string? lpName);
-
-	[LibraryImport("kernel32.dll")]
-	private static partial uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
-
-	[LibraryImport("advapi32.dll", SetLastError = true)]
-	private static partial int RegCloseKey(IntPtr hKey);
-
-	readonly IntPtr hKey;
-	IntPtr HEvent { get; }
-	Thread WatcherThread { get; }
-	bool Running { get; set; }
-
-	ILogger Logger { get; }
-
-	public event Action? RegistryChanged;
-
-	public RegistryWatcher(ILogger logger, string registryPath)
+	public RegistryWatcher(ILogger logger, string path, int intervalMs = 2000)
 	{
-		Logger = logger;
+		_path = path;
 
-		IntPtr HKEY_LOCAL_MACHINE = new(unchecked((int)0x80000002));
+		_timer = new Timer(_ => Check(), null, 0, intervalMs);
 
-		// Öffnen des Registry-Schlüssels
-		int result = (int)RegOpenKeyExW(HKEY_LOCAL_MACHINE, registryPath, 0, KEY_NOTIFY, out hKey);
-		if (result != ERROR_SUCCESS)
-			throw new InvalidOperationException("Fehler beim Öffnen des Registry-Schlüssels.");
-
-		// Event erstellen, das bei Änderungen ausgelöst wird
-		HEvent = CreateEventW(IntPtr.Zero, true, false, null);
-		if (HEvent == IntPtr.Zero)
-			throw new InvalidOperationException("Fehler beim Erstellen des Ereignisses.");
-
-		// Überwachungs-Thread starten
-		WatcherThread = new Thread(WatcherLoop);
-		Running = true;
-		WatcherThread.IsBackground = true;
-		WatcherThread.Start();
+		_logger = logger;
 	}
 
-	private void WatcherLoop()
+	void Check()
 	{
 		try
 		{
-			while (Running)
-			{
-				// Warten auf eine Änderung
-				uint notifyFilter = REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_LAST_SET;
-				int result = RegNotifyChangeKeyValue(hKey, true, notifyFilter, HEvent, true);
-				if (result != ERROR_SUCCESS)
-					throw new InvalidOperationException("Fehler bei der Registrierung der Benachrichtigung.");
+			using var key = Registry.LocalMachine.OpenSubKey(_path);
+			if (key is null)
+				return;
 
-				// Auf Ereignis warten
-				uint waitResult = WaitForSingleObject(HEvent, 1000);
-				if (waitResult == 0) // Warten auf die Benachrichtigung
-					OnRegistryChanged();
+			HashSet<string> current = [.. key.GetSubKeyNames()];
+
+			if (!current.SetEquals(_lastSnapshot))
+			{
+				_lastSnapshot = current;
+				Changed?.Invoke();
 			}
 		}
 		catch (Exception ex)
 		{
-			Logger.LogError(ex, $"Error in {nameof(RegistryWatcher)}: {ex.Message}");
+			_logger.LogError(ex, $"Error in {nameof(RegistryWatcher)}: {ex.Message}");
 		}
-	}
-
-	protected virtual void OnRegistryChanged()
-	{
-		RegistryChanged?.Invoke();
-	}
-
-	public void Stop()
-	{
-		Running = false;
-		WatcherThread.Join();
-		int result = RegCloseKey(hKey);
-		if (result != 0)
-			Logger.LogError($"RegCloseKey returned: {result}");
 	}
 
 	public void Dispose()
 	{
-		Stop();
-		GC.SuppressFinalize(this);
+		_timer.Dispose();
 	}
 }

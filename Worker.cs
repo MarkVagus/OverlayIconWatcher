@@ -37,21 +37,20 @@ internal class Worker : BackgroundService
 
 		ReorderOverlayIcons();
 
-		Logger.LogInformation($"Start watching registry key: {RegistryKey}");
+		Logger.LogInformation("Start watching registry key: {key}", RegistryKey);
 		Watcher = new(Logger, RegistryKey);
-
-		Watcher.RegistryChanged += OnRegistryChanged;
+		Watcher.Changed += OnRegistryChanged;
 
 		Logger.LogInformation("Service started.");
 		return Task.CompletedTask;
 	}
 
-	private void OnRegistryChanged()
+	void OnRegistryChanged()
 	{
 		if (Watcher is null)
 			return;
 
-		Watcher.RegistryChanged -= OnRegistryChanged;
+		Watcher.Changed -= OnRegistryChanged;
 
 		Logger.LogInformation("Registry change detected.");
 
@@ -59,7 +58,7 @@ internal class Worker : BackgroundService
 
 		ReorderOverlayIcons();
 
-		Watcher.RegistryChanged += OnRegistryChanged;
+		Watcher.Changed += OnRegistryChanged;
 	}
 
 	void ReorderOverlayIcons()
@@ -73,8 +72,7 @@ internal class Worker : BackgroundService
 		Logger.LogInformation("Stopping service...");
 		Logger.LogInformation($"Stop watching registry key: {RegistryKey}");
 
-		if (Watcher is not null)
-			Watcher.RegistryChanged -= OnRegistryChanged;
+		Watcher?.Changed -= OnRegistryChanged;
 
 		Logger.LogInformation("Service stopped.");
 

@@ -105,7 +105,7 @@ public class OverlayIconManager
 				if (e2.Key == e.Key)
 					continue;
 
-				Logger.LogInformation($"Removing duplcate entry: {e2.Value} ({e2.Key})");
+				Logger.LogInformation($"Removing duplicate entry: {e2.Value} ({e2.Key})");
 				RemoveKey(e2.Key);
 				entries.Remove(e2.Key);
 				removedKeys.Add(e2.Key);
