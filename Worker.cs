@@ -1,78 +1,79 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Reflection;
 
 namespace OverlayIconWatcher;
 
 internal class Worker : BackgroundService
 {
-	public Worker(ILogger<Worker> logger)
+	public Worker(ILogger<Worker> logger, OverlayIconManager manager, RegistryWatcher watcher)
 	{
 		Logger = logger;
 
+		Manager = manager;
+
+		Watcher = watcher;
+
 		Logger.LogInformation(Program.ProgramInfo);
 
-		Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
-		string entryAssemblyDirectoryPath = Path.GetDirectoryName(entryAssembly.Location) ?? throw new Exception("No directory pth for entry assembly found");
-		SettingsFilePath = Path.Combine(entryAssemblyDirectoryPath, "settings.json");
+		//Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
+		//string entryAssemblyDirectoryPath = Path.GetDirectoryName(entryAssembly.Location) ?? throw new Exception("No directory pth for entry assembly found");
+		//SettingsFilePath = Path.Combine(entryAssemblyDirectoryPath, "settings.json");
 
-		if (!File.Exists(SettingsFilePath))
-			throw new Exception($"settings.json not found at: {SettingsFilePath}");
+		//if (!File.Exists(SettingsFilePath))
+		//	throw new Exception($"settings.json not found at: {SettingsFilePath}");
 
-		Logger.LogInformation($"Settings file: {SettingsFilePath}");
+		//Logger.LogInformation("Settings file: {p}", SettingsFilePath);
 	}
 
-	readonly string RegistryKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ShellIconOverlayIdentifiers";
 
 	ILogger Logger { get; }
 
-	RegistryWatcher? Watcher { get; set; }
+	OverlayIconManager Manager { get; }
 
-	string SettingsFilePath { get; set; }
+	RegistryWatcher Watcher { get; }
 
 
-	protected override Task ExecuteAsync(CancellationToken stoppingToken)
+	CancellationToken _stoppingToken;
+
+	public override async Task StartAsync(CancellationToken cancellationToken)
+	{
+		_stoppingToken = cancellationToken;
+
+		await base.StartAsync(cancellationToken);
+	}
+
+	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
 		Logger.LogInformation("Service starting...");
 
-		ReorderOverlayIcons();
+		await Manager.ExecuteAsync(stoppingToken);
 
-		Logger.LogInformation("Start watching registry key: {key}", RegistryKey);
-		Watcher = new(Logger, RegistryKey);
-		Watcher.Changed += OnRegistryChanged;
+		Logger.LogInformation("Start watching registry key: {key}", Watcher.RegistryKeyPath);
+		Watcher.Changed += OnRegistryChangedAsync;
 
 		Logger.LogInformation("Service started.");
-		return Task.CompletedTask;
 	}
 
-	void OnRegistryChanged()
+	async Task OnRegistryChangedAsync()
 	{
-		if (Watcher is null)
-			return;
-
-		Watcher.Changed -= OnRegistryChanged;
+		Watcher.Changed -= OnRegistryChangedAsync;
 
 		Logger.LogInformation("Registry change detected.");
 
-		Task.Delay(1000);
+		await Task.Delay(1000);
 
-		ReorderOverlayIcons();
+		await Manager.ExecuteAsync(_stoppingToken);
 
-		Watcher.Changed += OnRegistryChanged;
+		Watcher.Changed += OnRegistryChangedAsync;
 	}
 
-	void ReorderOverlayIcons()
-	{
-		OverlayIconManager m = new(Logger, SettingsFilePath, RegistryKey);
-		m.Execute();
-	}
 
 	public override Task StopAsync(CancellationToken cancellationToken)
 	{
 		Logger.LogInformation("Stopping service...");
-		Logger.LogInformation($"Stop watching registry key: {RegistryKey}");
+		Logger.LogInformation("Stop watching registry key: {reg}", Watcher.RegistryKeyPath);
 
-		Watcher?.Changed -= OnRegistryChanged;
+		Watcher.Changed -= OnRegistryChangedAsync;
 
 		Logger.LogInformation("Service stopped.");
 

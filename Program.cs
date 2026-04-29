@@ -1,7 +1,8 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Serilog;
+using Serilog.Core;
 using System.Reflection;
 
 namespace OverlayIconWatcher;
@@ -10,11 +11,13 @@ internal class Program
 {
 	internal static string ProgramInfo => $"{Assembly.GetEntryAssembly()?.GetName().Name} {Assembly.GetEntryAssembly()?.GetName().Version}";
 
+	static readonly string RegistryKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ShellIconOverlayIdentifiers";
+
 	static void Main(string[] args)
 	{
 		try
 		{
-			Host.CreateDefaultBuilder(args)
+			var host = Host.CreateDefaultBuilder(args)
 				.UseWindowsService() // ← sorgt dafür, dass als Windows-Dienst gearbeitet wird
 				.UseSerilog((context, services, configuration) =>
 				{
@@ -22,10 +25,38 @@ internal class Program
 				})
 				.ConfigureServices((hostContext, services) =>
 				{
+					// Settings
+					services.AddSingleton(sp =>
+					{
+						Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
+						string entryAssemblyDirectoryPath = Path.GetDirectoryName(entryAssembly.Location) ?? throw new Exception("No directory pth for entry assembly found");
+						string settingsFilePath = Path.Combine(entryAssemblyDirectoryPath, "settings.json");
+
+						return SettingsFactory.Load(RegistryKey, settingsFilePath);
+					});
+
+					services.AddSingleton(sp =>
+					  new RegistryWatcher(sp.GetRequiredService<ILogger<RegistryWatcher>>(), RegistryKey));
+
+					services.AddSingleton<OverlayIconManager>();
 					services.AddHostedService<Worker>();
 				})
-				.Build()
-				.Run();
+				.Build();
+
+			ILogger<Program> logger = host.Services.GetRequiredService<ILogger<Program>>();
+			logger.LogInformation(ProgramInfo);
+
+			Settings settings = host.Services.GetRequiredService<Settings>();
+			logger.LogInformation("Settings loaded from: {s}", settings.Path);
+
+			logger.LogInformation("{n} keys sorted at beginning:", settings.KeepTheseKeysInFront.Count);
+			int i = 0;
+			foreach (string key in settings.KeepTheseKeysInFront)
+			{
+				logger.LogInformation("{i} {key}", $"#{++i}", key);
+			}
+
+			host.Run();
 		}
 		catch (Exception ex)
 		{

@@ -7,89 +7,143 @@ namespace OverlayIconWatcher;
 
 public class OverlayIconManager
 {
-	public OverlayIconManager(ILogger logger, string settingsFilepath, string registryKey)
+	public OverlayIconManager(ILogger<OverlayIconManager> logger, Settings settings)
 	{
 		Logger = logger;
 
-		try
-		{
-			logger.LogInformation("Opening registry key: {key}", registryKey);
-
-			RegistryKey shellIconOverlayIdentifiersKey = Registry.LocalMachine.OpenSubKey(registryKey, true) ??
-				throw new Exception($"Could not open registry key: {registryKey}");
-
-			ShellIconOverlayIdentifiersKey = shellIconOverlayIdentifiersKey;
-
-			Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
-
-			logger.LogInformation("Reading Settings.json: {s}", settingsFilepath);
-
-			string json = File.ReadAllText(settingsFilepath);
-			List<string> keepTheseKeysInFront = JsonSerializer.Deserialize<List<string>>(json) ??
-				throw new Exception("Settings.json is empty!");
-
-			KeepTheseKeysInFront = keepTheseKeysInFront;
-
-			logger.LogInformation("{count} entries will be sorted at beginning:", keepTheseKeysInFront.Count);
-
-			int i = 0;
-			foreach (string k in KeepTheseKeysInFront)
-			{
-				i++;
-				logger.LogInformation("{i}:{k}", i, k);
-			}
-		}
-		catch (Exception ex)
-		{
-			Logger.LogError(ex, ex.Message);
-			throw;
-		}
+		Settings = settings;
 	}
+
+	Settings Settings { get; }
+
+	//public OverlayIconManager(ILogger logger, string settingsFilepath, string registryKey)
+	//{
+	//	Logger = logger;
+
+	//	try
+	//	{
+	//		logger.LogInformation("Opening registry key: {key}", registryKey);
+			  
+	//		RegistryKey shellIconOverlayIdentifiersKey = Registry.LocalMachine.OpenSubKey(registryKey, true) ??
+	//			throw new Exception($"Could not open registry key: {registryKey}");
+
+	//		ShellIconOverlayIdentifiersKey = shellIconOverlayIdentifiersKey;
+
+	//		Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
+
+	//		logger.LogInformation("Reading Settings.json: {s}", settingsFilepath);
+
+	//		string json = File.ReadAllText(settingsFilepath);
+	//		List<string> keepTheseKeysInFront = JsonSerializer.Deserialize<List<string>>(json) ??
+	//			throw new Exception("Settings.json is empty!");
+
+	//		KeepTheseKeysInFront = keepTheseKeysInFront;
+
+	//		logger.LogInformation("{count} entries will be sorted at beginning:", keepTheseKeysInFront.Count);
+
+	//		int i = 0;
+	//		foreach (string k in KeepTheseKeysInFront)
+	//		{
+	//			i++;
+	//			logger.LogInformation("{i}:{k}", i, k);
+	//		}
+	//	}
+	//	catch (Exception ex)
+	//	{
+	//		Logger.LogError(ex, ex.Message);
+	//		throw;
+	//	}
+	//}
+
+	//public async Task InitializeAsync(CancellationToken stoppingToken)
+	//{
+	//	try
+	//	{
+	//		Logger.LogInformation("Opening registry key: {key}", Settings.RegistryPath);
+
+	//		RegistryKey shellIconOverlayIdentifiersKey = Registry.LocalMachine.OpenSubKey(Settings.RegistryPath, true) ??
+	//			throw new Exception($"Could not open registry key: {Settings.RegistryPath}");
+
+	//		ShellIconOverlayIdentifiersKey = shellIconOverlayIdentifiersKey;
+
+	//		Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
+
+	//		string settingsFilePath = entryAssembly.Location
+
+	//		logger.LogInformation("Reading Settings.json: {s}", settingsFilepath);
+
+	//		string json = File.ReadAllText(settingsFilepath);
+	//		List<string> keepTheseKeysInFront = JsonSerializer.Deserialize<List<string>>(json) ??
+	//			throw new Exception("Settings.json is empty!");
+
+	//		KeepTheseKeysInFront = keepTheseKeysInFront;
+
+	//		logger.LogInformation("{count} entries will be sorted at beginning:", keepTheseKeysInFront.Count);
+
+	//		int i = 0;
+	//		foreach (string k in KeepTheseKeysInFront)
+	//		{
+	//			i++;
+	//			logger.LogInformation("{i}:{k}", i, k);
+	//		}
+	//	}
+	//	catch (Exception ex)
+	//	{
+	//		Logger.LogError(ex, ex.Message);
+	//		throw;
+	//	}
+	//}
 
 	ILogger Logger { get; }
 
-	List<string> KeepTheseKeysInFront { get; }
+	//List<string> KeepTheseKeysInFront { get; }
 
-	RegistryKey ShellIconOverlayIdentifiersKey { get; }
+	//RegistryKey ShellIconOverlayIdentifiersKey { get; set; }
 
-	private Dictionary<string, string> ReadEntries()
+	Task<Dictionary<string, string>> ReadEntriesAsync(RegistryKey regKey, CancellationToken cancellationToken = default)
 	{
 		Dictionary<string, string> entries = [];
 
-		foreach (var skn in ShellIconOverlayIdentifiersKey.GetSubKeyNames())
+
+		foreach (var skn in regKey.GetSubKeyNames())
 		{
-			using var subkey = ShellIconOverlayIdentifiersKey.OpenSubKey(skn);
+			cancellationToken.ThrowIfCancellationRequested();
+
+			using var subkey = regKey.OpenSubKey(skn);
 			string? value = subkey?.GetValue("") as string;
 			if (!string.IsNullOrEmpty(value))
 				entries.Add(skn, value);
 		}
 
-		return entries;
+		return Task.FromResult(entries);
 	}
 
-	public void Execute()
+	public async Task ExecuteAsync(CancellationToken cancellationToken = default)
 	{
-		Dictionary<string, string> entries = ReadEntries();
+		using RegistryKey shellIconOverlayIdentifiersKey = Registry.LocalMachine.OpenSubKey(Settings.RegistryPath, true) ??
+				throw new Exception($"Could not open registry key: {Settings.RegistryPath}");
+
+		Dictionary<string, string> entries = await ReadEntriesAsync(shellIconOverlayIdentifiersKey, cancellationToken);
 
 		int keysRemoved = 0, keysRenamed = 0;
 
 		if (entries is not null && entries.Count > 0)
 		{
-			keysRemoved = RemoveDuplicateKeys(entries);
-			keysRenamed = RenameKeys(entries);
+			keysRemoved = await RemoveDuplicateKeysAsync(shellIconOverlayIdentifiersKey, entries, cancellationToken);
+			keysRenamed = await RenameKeysAsync(shellIconOverlayIdentifiersKey, entries, cancellationToken);
 		}
 
 		if (keysRenamed + keysRenamed == 0)
 			Logger.LogInformation("Reordering finished. No changes.");
 		else
-			Logger.LogInformation($"Reordering finished. Deleted / Renamed = {keysRemoved} / {keysRenamed}");
+			Logger.LogInformation("Reordering finished. Deleted / Renamed = {removed} / {renamed}", keysRemoved, keysRenamed);
 	}
 
 	/// <summary>
 	/// Entfernt doppelte Einträge (bezogen auf den Standardwert, der in der Form {9AAFF...} vorliegt)
 	/// </summary>
 	/// <param name="entries"></param>
-	int RemoveDuplicateKeys(Dictionary<string, string> entries)
+	async Task<int> RemoveDuplicateKeysAsync(RegistryKey regKey, Dictionary<string, string> entries, CancellationToken cancellationToken = default)
 	{
 		int keysDeleted = 0;
 
@@ -97,6 +151,8 @@ public class OverlayIconManager
 
 		foreach (var e in entries.ToArray())
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			if (removedKeys.Contains(e.Key))
 				continue;
 
@@ -106,7 +162,7 @@ public class OverlayIconManager
 					continue;
 
 				Logger.LogInformation($"Removing duplicate entry: {e2.Value} ({e2.Key})");
-				RemoveKey(e2.Key);
+				RemoveKey(regKey, e2.Key);
 				entries.Remove(e2.Key);
 				removedKeys.Add(e2.Key);
 
@@ -122,20 +178,22 @@ public class OverlayIconManager
 	/// Einträgen genau ein Leerzeichen am Anfang hinzu (damit diese prioritär behandelt werden)
 	/// </summary>
 	/// <param name="entries"></param>
-	int RenameKeys(Dictionary<string, string> entries)
+	async Task<int> RenameKeysAsync(RegistryKey regKey, Dictionary<string, string> entries, CancellationToken cancellationToken = default)
 	{
 		int keysRenamed = 0;
 
 		foreach (var e in entries)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			string normalizedKey = e.Key.TrimStart(' ');
 			string newKeyName = normalizedKey;
-			if (KeepTheseKeysInFront.Contains(normalizedKey))
+			if (Settings.KeepTheseKeysInFront.Contains(normalizedKey))
 				newKeyName = $" {normalizedKey}";
 
 			if (newKeyName != e.Key)
 			{
-				RenameKey(e.Key, newKeyName);
+				RenameKey(regKey, e.Key, newKeyName);
 				keysRenamed++;
 			}
 		}
@@ -143,16 +201,16 @@ public class OverlayIconManager
 		return keysRenamed;
 	}
 
-	void RemoveKey(string keyName)
+	void RemoveKey(RegistryKey regKey, string keyName)
 	{
 		Logger.LogInformation("Removing duplicate Key: {keyName}", keyName);
-		ShellIconOverlayIdentifiersKey.DeleteSubKeyTree(keyName);
+		regKey.DeleteSubKeyTree(keyName);
 	}
 
-	void RenameKey(string oldKeyName, string newKeyName)
+	void RenameKey(RegistryKey regKey, string oldKeyName, string newKeyName)
 	{
 		Logger.LogInformation("Renaming key (old => new): '{oldKeyName}' => '{newKeyName}'", oldKeyName, newKeyName);
-		RegistryUtils.RenameSubKey(ShellIconOverlayIdentifiersKey, oldKeyName, newKeyName);
+		RegistryUtils.RenameSubKey(regKey, oldKeyName, newKeyName);
 	}
 
 }
