@@ -27,8 +27,13 @@ public class RegistryWatcher : IDisposable
 		_logger = logger;
 	}
 
+	int _isRunning = 0;
+
 	void Check()
 	{
+		if (Interlocked.Exchange(ref _isRunning, 1) == 1)
+			return;
+
 		try
 		{
 			using var key = Registry.LocalMachine.OpenSubKey(RegistryKeyPath);
@@ -40,12 +45,32 @@ public class RegistryWatcher : IDisposable
 			if (!current.SetEquals(_lastSnapshot))
 			{
 				_lastSnapshot = current;
-				Changed?.Invoke();
+
+				var handler = Changed;
+
+				if (handler is not null)
+				{
+					_ = Task.Run(async () =>
+					{
+						try
+						{
+							await handler();
+						}
+						catch (Exception ex)
+						{
+							_logger.LogError(ex, "Error in Changed handler");
+						}
+					});
+				}
 			}
 		}
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, $"Error in {nameof(RegistryWatcher)}: {ex.Message}");
+		}
+		finally
+		{
+			Interlocked.Exchange(ref _isRunning, 0);
 		}
 	}
 
