@@ -44,7 +44,8 @@ internal class Program
 				.Build();
 
 			ILogger<Program> logger = host.Services.GetRequiredService<ILogger<Program>>();
-			logger.LogInformation(ProgramInfo);
+			logger.LogInformation("=== APPLICATION START ===");
+			logger.LogInformation("{p}", ProgramInfo);
 
 			Settings settings = host.Services.GetRequiredService<Settings>();
 			logger.LogInformation("Settings loaded from: {s}", settings.Path);

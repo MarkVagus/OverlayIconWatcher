@@ -3,35 +3,13 @@ using Microsoft.Extensions.Logging;
 
 namespace OverlayIconWatcher;
 
-internal class Worker : BackgroundService
+internal class Worker(ILogger<Worker> logger, OverlayIconManager manager, RegistryWatcher watcher) : BackgroundService
 {
-	public Worker(ILogger<Worker> logger, OverlayIconManager manager, RegistryWatcher watcher)
-	{
-		Logger = logger;
+	readonly ILogger _logger = logger;
 
-		Manager = manager;
+	readonly OverlayIconManager _manager = manager;
 
-		Watcher = watcher;
-
-		Logger.LogInformation(Program.ProgramInfo);
-
-		//Assembly entryAssembly = Assembly.GetEntryAssembly() ?? throw new Exception("No entry assembly found");
-		//string entryAssemblyDirectoryPath = Path.GetDirectoryName(entryAssembly.Location) ?? throw new Exception("No directory pth for entry assembly found");
-		//SettingsFilePath = Path.Combine(entryAssemblyDirectoryPath, "settings.json");
-
-		//if (!File.Exists(SettingsFilePath))
-		//	throw new Exception($"settings.json not found at: {SettingsFilePath}");
-
-		//Logger.LogInformation("Settings file: {p}", SettingsFilePath);
-	}
-
-
-	ILogger Logger { get; }
-
-	OverlayIconManager Manager { get; }
-
-	RegistryWatcher Watcher { get; }
-
+	readonly RegistryWatcher _watcher = watcher;
 
 	CancellationToken _stoppingToken;
 
@@ -44,38 +22,38 @@ internal class Worker : BackgroundService
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
-		Logger.LogInformation("Service starting...");
+		_logger.LogInformation("Service starting...");
 
-		await Manager.ExecuteAsync(stoppingToken);
+		await _manager.ExecuteAsync(stoppingToken);
 
-		Logger.LogInformation("Start watching registry key: {key}", Watcher.RegistryKeyPath);
-		Watcher.Changed += OnRegistryChangedAsync;
+		_logger.LogInformation("Start watching registry key: {key}", _watcher.RegistryKeyPath);
+		_watcher.Changed += OnRegistryChangedAsync;
 
-		Logger.LogInformation("Service started.");
+		_logger.LogInformation("Service started.");
 	}
 
 	async Task OnRegistryChangedAsync()
 	{
-		Watcher.Changed -= OnRegistryChangedAsync;
+		_watcher.Changed -= OnRegistryChangedAsync;
 
-		Logger.LogInformation("Registry change detected.");
+		_logger.LogInformation("Registry change detected.");
 
 		await Task.Delay(1000);
 
-		await Manager.ExecuteAsync(_stoppingToken);
+		await _manager.ExecuteAsync(_stoppingToken);
 
-		Watcher.Changed += OnRegistryChangedAsync;
+		_watcher.Changed += OnRegistryChangedAsync;
 	}
 
 
 	public override Task StopAsync(CancellationToken cancellationToken)
 	{
-		Logger.LogInformation("Stopping service...");
-		Logger.LogInformation("Stop watching registry key: {reg}", Watcher.RegistryKeyPath);
+		_logger.LogInformation("Stopping service...");
+		_logger.LogInformation("Stop watching registry key: {reg}", _watcher.RegistryKeyPath);
 
-		Watcher.Changed -= OnRegistryChangedAsync;
+		_watcher.Changed -= OnRegistryChangedAsync;
 
-		Logger.LogInformation("Service stopped.");
+		_logger.LogInformation("Service stopped.");
 
 		return base.StopAsync(cancellationToken);
 	}
