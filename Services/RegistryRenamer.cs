@@ -1,8 +1,9 @@
 ﻿using Microsoft.Win32;
+using OverlayIconWatcher.Interfaces;
 
-namespace OverlayIconWatcher;
+namespace OverlayIconWatcher.Services;
 
-public class RegistryUtils
+public class RegistryRenamer : IRegistryRenamer
 {
 	/// <summary>
 	/// Renames a subkey of the passed in registry key since 
@@ -14,8 +15,7 @@ public class RegistryUtils
 	/// </param>
 	/// <param name="newSubKeyName">The new name of the RegistryKey</param>
 	/// <returns>True if succeeds</returns>
-	static public bool RenameSubKey(RegistryKey parentKey,
-		string subKeyName, string newSubKeyName)
+	public bool RenameSubKey(RegistryKey parentKey, string subKeyName, string newSubKeyName)
 	{
 		CopyKey(parentKey, subKeyName, newSubKeyName);
 		parentKey.DeleteSubKeyTree(subKeyName);
@@ -29,8 +29,7 @@ public class RegistryUtils
 	/// <param name="keyNameToCopy"></param>
 	/// <param name="newKeyName"></param>
 	/// <returns></returns>
-	static public bool CopyKey(RegistryKey parentKey,
-		string keyNameToCopy, string newKeyName)
+	static public bool CopyKey(RegistryKey parentKey, string keyNameToCopy, string newKeyName)
 	{
 		//Create new key
 		RegistryKey destinationKey = parentKey.CreateSubKey(newKeyName);

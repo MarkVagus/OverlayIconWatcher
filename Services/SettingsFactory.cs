@@ -1,10 +1,11 @@
-﻿using System.Text.Json;
+﻿using OverlayIconWatcher.Interfaces;
+using System.Text.Json;
 
-namespace OverlayIconWatcher;
+namespace OverlayIconWatcher.Services;
 
 public static class SettingsFactory
 {
-	public static Settings Load(string registryPath, string filePath)
+	public static ISettings Load(string registryPath, string filePath)
 	{
 		string json = File.ReadAllText(filePath);
 

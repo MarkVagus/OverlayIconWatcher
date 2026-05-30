@@ -1,8 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OverlayIconWatcher.Interfaces;
+using OverlayIconWatcher.Services;
 using Serilog;
-using Serilog.Core;
 using System.Reflection;
 
 namespace OverlayIconWatcher;
@@ -35,10 +36,8 @@ internal class Program
 						return SettingsFactory.Load(RegistryKey, settingsFilePath);
 					});
 
-					services.AddSingleton(sp =>
-					  new RegistryWatcher(sp.GetRequiredService<ILogger<RegistryWatcher>>(), RegistryKey));
-
-					services.AddSingleton<OverlayIconManager>();
+					services.AddSingleton<IRegistryRenamer, RegistryRenamer>();
+					services.AddSingleton<IOverlayIconManager, OverlayIconManager>();
 					services.AddHostedService<Worker>();
 				})
 				.Build();
@@ -47,7 +46,7 @@ internal class Program
 			logger.LogInformation("=== APPLICATION START ===");
 			logger.LogInformation("{p}", ProgramInfo);
 
-			Settings settings = host.Services.GetRequiredService<Settings>();
+			ISettings settings = host.Services.GetRequiredService<ISettings>();
 			logger.LogInformation("Settings loaded from: {s}", settings.Path);
 
 			logger.LogInformation("{n} keys sorted at beginning:", settings.KeepTheseKeysInFront.Count);

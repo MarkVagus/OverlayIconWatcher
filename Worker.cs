@@ -1,60 +1,74 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
+using OverlayIconWatcher.Interfaces;
 
 namespace OverlayIconWatcher;
 
-internal class Worker(ILogger<Worker> logger, OverlayIconManager manager, RegistryWatcher watcher) : BackgroundService
+internal class Worker(ILogger<Worker> logger, IOverlayIconManager manager, ISettings settings, IConfiguration configuration) : BackgroundService
 {
 	readonly ILogger _logger = logger;
+	readonly IOverlayIconManager _manager = manager;
+	readonly string _registryKey = settings.RegistryPath;
+	readonly int _intervalMs = Math.Max(1000, configuration.GetValue("Interval", 1000));
 
-	readonly OverlayIconManager _manager = manager;
-
-	readonly RegistryWatcher _watcher = watcher;
-
-	CancellationToken _stoppingToken;
-
-	public override async Task StartAsync(CancellationToken cancellationToken)
-	{
-		_stoppingToken = cancellationToken;
-
-		await base.StartAsync(cancellationToken);
-	}
+	HashSet<string> _lastSnapshot = [];
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
 		_logger.LogInformation("Service starting...");
 
-		await _manager.ExecuteAsync(stoppingToken);
+		await _manager.ReorderKeysAsync(stoppingToken);
 
-		_logger.LogInformation("Start watching registry key: {key}", _watcher.RegistryKeyPath);
-		_watcher.Changed += OnRegistryChangedAsync;
+		_lastSnapshot = LoadKeys();
+
+		_logger.LogInformation("Start watching registry key: {key}", _registryKey);
+
+		_logger.LogInformation("Interval (ms): {i}", _intervalMs);
 
 		_logger.LogInformation("Service started.");
+
+		try
+		{
+
+			while (!stoppingToken.IsCancellationRequested)
+			{
+				await CheckAsync(stoppingToken);
+
+				await Task.Delay(_intervalMs, stoppingToken);
+			}
+		}
+		catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { } // No action required
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Unhandled exception");
+			throw;
+		}
 	}
 
-	async Task OnRegistryChangedAsync()
+	HashSet<string> LoadKeys()
 	{
-		_watcher.Changed -= OnRegistryChangedAsync;
+		using var key = Registry.LocalMachine.OpenSubKey(_registryKey);
+		if (key is null)
+			return [];
 
-		_logger.LogInformation("Registry change detected.");
+		HashSet<string> current = [.. key.GetSubKeyNames()];
 
-		await Task.Delay(1000);
-
-		await _manager.ExecuteAsync(_stoppingToken);
-
-		_watcher.Changed += OnRegistryChangedAsync;
+		return current;
 	}
 
-
-	public override Task StopAsync(CancellationToken cancellationToken)
+	async Task CheckAsync(CancellationToken cancellationToken)
 	{
-		_logger.LogInformation("Stopping service...");
-		_logger.LogInformation("Stop watching registry key: {reg}", _watcher.RegistryKeyPath);
+		HashSet<string> current = LoadKeys();
 
-		_watcher.Changed -= OnRegistryChangedAsync;
+		if (!current.SetEquals(_lastSnapshot))
+		{
+			_lastSnapshot = current;
 
-		_logger.LogInformation("Service stopped.");
+			_logger.LogInformation("Registry change detected.");
 
-		return base.StopAsync(cancellationToken);
+			await _manager.ReorderKeysAsync(cancellationToken);
+		}
 	}
 }
